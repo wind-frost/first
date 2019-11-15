@@ -1,0 +1,101 @@
+############后台 接口
+
+class Comment(APIView):
+    def post(self, request):
+        """ 添加评论"""
+        content = request.data
+        mes = {}
+        try:
+            pid = int(content['pid'])
+        except:
+            pid = 0
+        if pid == 0:
+            type = 1
+            top = 0
+        else:
+            db = client['dbdb']
+            slist = db['comment']
+            type1 = slist.find({'_id': pid})
+            # c = Comment.objects.get(id=pid)
+            for item in type1:
+                # print(item,'查询')
+                type = item['type'] + 1
+                # print(type,'type')
+                if item['top'] == 0:
+                    top = item['_id']
+                else:
+                    top = item['top']
+        content['create_time'] = time.strftime("%Y-%m-%d%H:%I:%S", time.localtime(time.time()))
+        content['type'] = type
+        content['top'] = top
+        content['pid'] = pid
+        content['status'] = 1
+        # print(content)
+        db = client['dbdb']
+        comm = db['comment']
+        content['_id'] = getNextValue('name')
+        comm.insert_one(content)
+        mes['code'] = 200
+        mes['message'] = '评论成功'
+
+        return Response(mes)
+
+    def get(self, request):
+        """获取评论"""
+        course_id = request.GET.get('course_id')
+        c= sub_cate(course_id,0)  #调用递归函数获取该课程下的所有评论
+
+        db = client['dbdb']
+        comm = db['comment']
+        comment = comm.find({'course_id': course_id}).sort([("create_time", pymongo.DESCENDING)])
+        count = comment.count()
+        info={
+            'data':c,
+
+            'count':count
+        }
+        return Response(info)
+
+
+import pymongo
+
+
+def sub_cate(course,pid):
+    """构造递归实现获取所有评论"""
+    db = client['dbdb']
+    comm = db['comment']
+    comment = comm.find({'course_id': course,"pid":pid}).sort([("create_time",pymongo.DESCENDING)])
+    list = []
+    if comment:
+        for i in comment:
+            dic = {}
+            user_id = i['user_id']
+            u = User.objects.get(id=user_id)
+            dic['username'] = u.username
+            dic['img'] = u.img
+            dic['id'] = i['_id']
+            dic['pid'] = i['pid']
+            dic['top'] = i['top']
+            dic['type'] = i['type']
+            dic['user_id'] = i['user_id']
+            dic['course_id'] = i['course_id']
+            dic['content'] = i['content']
+            dic['status'] = i['status']
+            dic['create_time'] = i['create_time']
+            dic['children'] = sub_cate(course,i['_id'])  #递归 把该条评论的id当作下次评论的pid进行递归
+            list.append(dic)
+        return list
+    return []
+
+
+
+##########前台vue：
+###父组件中需要加入评论的地方引入：	
+	<comments v-for="i in coummlist" :synClass="i"  :key="i" style="padding:10px 10px;"></comments> 	（coummlist指后台获取到的评论列表）
+
+###引入子组件 ：comments.vue
+	子组件中核心代码：
+	   <template v-if="synClass.children">  （判断是否有下级评论 有就继续解析，没有就停止）
+      		<comments v-for="i in synClass.children" :synClass="i" :key="i"></comments>
+    	  </template>
+	

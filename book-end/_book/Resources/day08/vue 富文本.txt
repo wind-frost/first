@@ -1,0 +1,16 @@
+﻿ cnpm install wangeditor
+
+
+1。在父组件需要添加富文本的地方 引入：       
+		<editer v-on:listentochildevents='showMesfromchild'></editer>
+2.导入子组件 editer.vue
+
+3.在上传图片的接口中：
+	获取图片流：file = request.data.get('yourFileName') （不用修改）
+	返回的数据中加入 mes['errno'] = 0  
+		      mes['data'] = [
+            			 "图片1地址",
+        			 "图片2地址",
+       				 "……"
+        			]
+	
